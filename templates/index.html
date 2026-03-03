@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Faculty Specialization Advisor</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; background-color: #f5f5f5; }
+        .container { background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; text-align: center; }
+        .btn { background-color: #4CAF50; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px; }
+        .card { border: 1px solid #ddd; padding: 20px; margin: 15px 0; border-radius: 8px; }
+    </style>
+    <!-- Stiluri suplimentare pentru chat -->
+    <style>
+        .chat-container {
+            margin-top: 40px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .chat-messages {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: white;
+            border-radius: 8px;
+        }
+        .message {
+            padding: 8px 12px;
+            border-radius: 18px;
+            margin-bottom: 8px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+        .bot-message {
+            background-color: #e9ecef;
+            color: black;
+            align-self: flex-start;
+        }
+        .chat-input-area {
+            display: flex;
+            gap: 10px;
+        }
+        .chat-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .chat-send {
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🎓 AI Faculty Specialization Advisor</h1>
+    <p>Discover the perfect specialization for your future career!</p>
+    <div style="text-align: center;">
+        <a href="/assessment" class="btn">Start Assessment</a>
+        <button onclick="showAllSpecializations()" class="btn">Browse All</button>
+    </div>
+    <!-- Chat section -->
+    <div class="chat-container">
+        <h2>💬 Chat with our AI Advisor (powered by LLaMA)</h2>
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot-message">Bună! Îți pot oferi informații despre specializări, cariere, cursuri etc. Ce te interesează?</div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" placeholder="Scrie întrebarea ta..." class="chat-input">
+            <button onclick="sendMessage()" class="btn chat-send">Trimite</button>
+        </div>
+    </div>
+    <div id="specializations-container" style="margin-top: 40px;"></div>
+    <div id="recommendations" style="margin-top: 40px;">
+        <h2>Why Use Our AI Advisor?</h2>
+        <ul>
+            <li>✅ Personalized recommendations based on your skills</li>
+            <li>✅ Career path analysis and salary insights</li>
+            <li>✅ Compare different specializations</li>
+            <li>✅ Get answers to all your questions</li>
+        </ul>
+    </div>
+</div>
+<script>
+    async function showAllSpecializations() {
+        const container = document.getElementById('specializations-container');
+        if (!container) {
+            console.error('Elementul cu id "specializations-container" nu a fost găsit.');
+            return;
+        }
+
+        // Afișează un mesaj de încărcare
+        container.innerHTML = '<div class="loading">Se încarcă specializările...</div>';
+
+        try {
+            const response = await fetch('/api/specializations/all');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const specs = await response.json();
+
+            if (specs.length === 0) {
+                container.innerHTML = '<p>Nu s-au găsit specializări.</p>';
+                return;
+            }
+
+            // Creează un grid
+            const grid = document.createElement('div');
+            grid.className = 'specialization-grid';
+
+            specs.forEach(spec => {
+                const card = document.createElement('div');
+                card.className = 'spec-card';
+
+                const badgeClass = spec.accreditation === 'A' ? 'badge A' : 'badge AP';
+
+                card.innerHTML = `
+                <h3>${spec.name}</h3>
+                <p><strong>Facultate:</strong> ${spec.faculty || 'N/A'}</p>
+                <p><strong>Universitate:</strong> ${spec.university || 'N/A'}</p>
+                <p><strong>Domeniu:</strong> ${spec.domain || 'N/A'}</p>
+                <p>
+                    <span class="${badgeClass}">${spec.accreditation}</span>
+                    <span class="badge">${spec.study_form || 'Zi'}</span>
+                    <span class="badge">${spec.credits} credite</span>
+                </p>
+            `;
+                grid.appendChild(card);
+            });
+
+            container.innerHTML = '';
+            container.appendChild(grid);
+
+            // Ascunde secțiunea informativă, dacă există
+            const infoSection = document.getElementById('info-section');
+            if (infoSection) {
+                infoSection.style.display = 'none';
+            } else {
+                console.warn('Elementul cu id "info-section" nu a fost găsit. Se continuă fără a ascunde secțiunea.');
+            }
+
+        } catch (error) {
+            container.innerHTML = `<p style="color: red;">Eroare la încărcarea datelor: ${error.message}</p>`;
+        }
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('chatInput');
+        const message = input.value.trim();
+        if (!message) return;
+
+        // Adaugă mesajul utilizatorului în chat
+        const messagesDiv = document.getElementById('chatMessages');
+        const userMsgDiv = document.createElement('div');
+        userMsgDiv.className = 'message user-message';
+        userMsgDiv.textContent = message;
+        messagesDiv.appendChild(userMsgDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+        // Golește inputul
+        input.value = '';
+
+        // Afișează indicator de typing
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'message bot-message';
+        typingDiv.textContent = '⏳ Scrie...';
+        typingDiv.id = 'typingIndicator';
+        messagesDiv.appendChild(typingDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message })
+            });
+            const data = await response.json();
+
+            // Elimină indicatorul de typing
+            document.getElementById('typingIndicator')?.remove();
+
+            // Adaugă răspunsul botului
+            const botMsgDiv = document.createElement('div');
+            botMsgDiv.className = 'message bot-message';
+            botMsgDiv.textContent = data.answer || 'Nu am înțeles întrebarea.';
+            messagesDiv.appendChild(botMsgDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        } catch (error) {
+            console.error('Eroare:', error);
+            document.getElementById('typingIndicator')?.remove();
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'message bot-message';
+            errorDiv.textContent = 'A apărut o eroare. Încearcă din nou.';
+            messagesDiv.appendChild(errorDiv);
+        }
+    }
+</script>
+</body>
+</html>

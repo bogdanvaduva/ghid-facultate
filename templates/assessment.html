@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Assessment - AI Faculty Specialization Advisor</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f5f5f5; }
+        .container { background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        .question { margin-bottom: 20px; }
+        label { display: block; margin: 5px 0; }
+        button { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>📝 Student Assessment</h1>
+    <form id="assessment-form">
+        <div class="question">
+            <h3>What are your strongest skills? (select multiple)</h3>
+            <label><input type="checkbox" name="skills" value="Programming"> Programming</label>
+            <label><input type="checkbox" name="skills" value="Mathematics"> Mathematics</label>
+            <label><input type="checkbox" name="skills" value="Writing"> Writing</label>
+            <label><input type="checkbox" name="skills" value="Public Speaking"> Public Speaking</label>
+            <label><input type="checkbox" name="skills" value="Data Analysis"> Data Analysis</label>
+            <label><input type="checkbox" name="skills" value="Creative Design"> Creative Design</label>
+        </div>
+        <div class="question">
+            <h3>What are your main interests?</h3>
+            <label><input type="checkbox" name="interests" value="Technology"> Technology</label>
+            <label><input type="checkbox" name="interests" value="Business"> Business</label>
+            <label><input type="checkbox" name="interests" value="Arts"> Arts</label>
+            <label><input type="checkbox" name="interests" value="Science"> Science</label>
+            <label><input type="checkbox" name="interests" value="Healthcare"> Healthcare</label>
+        </div>
+        <div class="question">
+            <h3>Describe your personality (select multiple)</h3>
+            <label><input type="checkbox" name="personality" value="Analytical"> Analytical</label>
+            <label><input type="checkbox" name="personality" value="Creative"> Creative</label>
+            <label><input type="checkbox" name="personality" value="Social"> Social</label>
+            <label><input type="checkbox" name="personality" value="Organized"> Organized</label>
+            <label><input type="checkbox" name="personality" value="Adventurous"> Adventurous</label>
+        </div>
+        <button type="submit">Get Recommendations</button>
+    </form>
+    <div id="results"></div>
+</div>
+<script>
+    document.getElementById('assessment-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const data = {
+            skills: formData.getAll('skills'),
+            interests: formData.getAll('interests'),
+            personality_traits: formData.getAll('personality')
+        };
+        const response = await fetch('/api/submit-assessment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        const resultsDiv = document.getElementById('results');
+        resultsDiv.innerHTML = '<h2>Your Top Recommendations</h2>' +
+            result.recommendations.map(r =>
+                `<div class="card"><h3>${r.name}</h3><p>Match: ${r.match_score}%</p></div>`
+            ).join('');
+    });
+</script>
+</body>
+</html>
