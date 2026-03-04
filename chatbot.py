@@ -125,61 +125,7 @@ class OllamaChatbot:
             self.conversation = json.load(f)
 
 
-def main():
-    """Interactive chatbot demo."""
-    print("Ollama Chatbot")
-    print("Commands: /clear, /model <name>, /save <file>, /load <file>, /quit")
-    print("-" * 50)
 
-    # Initialize chatbot with a system prompt
-    bot = OllamaChatbot(
-        model="llama3.2",
-        system_prompt="You are a helpful assistant. Be concise but thorough."
-    )
-
-    while True:
-        try:
-            user_input = input("\nYou: ").strip()
-
-            if not user_input:
-                continue
-
-            # Handle commands
-            if user_input.startswith("/"):
-                parts = user_input.split(maxsplit=1)
-                command = parts[0].lower()
-                arg = parts[1] if len(parts) > 1 else None
-
-                if command == "/quit":
-                    print("Goodbye!")
-                    break
-                elif command == "/clear":
-                    bot.clear_history()
-                    print("Conversation cleared.")
-                elif command == "/model" and arg:
-                    bot.set_model(arg)
-                    print(f"Switched to model: {arg}")
-                elif command == "/save" and arg:
-                    bot.save_history(arg)
-                    print(f"History saved to: {arg}")
-                elif command == "/load" and arg:
-                    bot.load_history(arg)
-                    print(f"History loaded from: {arg}")
-                else:
-                    print("Unknown command")
-                continue
-
-            # Send message and stream response
-            print("\nAssistant: ", end="", flush=True)
-            for chunk in bot.chat(user_input):
-                print(chunk, end="", flush=True)
-            print()
-
-        except KeyboardInterrupt:
-            print("\n\nGoodbye!")
-            break
-        except Exception as e:
-            print(f"\nError: {e}")
 
 
 
