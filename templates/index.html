@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>AI Faculty Specialization Advisor</title>
+    <title>Ollama Chatbot</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; background-color: #f5f5f5; }
         .container { background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -76,12 +76,13 @@
     <!-- Chat section -->
     <div class="chat-container">
         <h2>💬 Chat with our AI Advisor (powered by LLaMA)</h2>
-        <div class="chat-messages" id="chatMessages">
+        <div class="chat-messages" id="chat">
             <div class="message bot-message">Bună! Îți pot oferi informații despre specializări, cariere, cursuri etc. Ce te interesează?</div>
         </div>
         <div class="chat-input-area">
-            <input type="text" id="chatInput" placeholder="Scrie întrebarea ta..." class="chat-input">
-            <button onclick="sendMessage()" class="btn chat-send">Trimite</button>
+            <input type="text" id="message" placeholder="Scrie întrebarea ta..." class="chat-input">
+            <button id="send">Trimite</button>
+            <button id="clear">Sterge conversatie</button>
         </div>
     </div>
     <div id="specializations-container" style="margin-top: 40px;"></div>
@@ -95,7 +96,13 @@
         </ul>
     </div>
 </div>
+
 <script>
+    const chatDiv = document.getElementById('chat');
+    const messageInput = document.getElementById('message');
+    const sendButton = document.getElementById('send');
+    const clearButton = document.getElementById('clear');
+
     async function showAllSpecializations() {
         const container = document.getElementById('specializations-container');
         if (!container) {
@@ -158,56 +165,93 @@
         }
     }
 
-    async function sendMessage() {
-        const input = document.getElementById('chatInput');
-        const message = input.value.trim();
+    function appendMessage(role, content) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = role;
+        msgDiv.textContent = `${role}: ${content}`;
+        chatDiv.appendChild(msgDiv);
+        chatDiv.scrollTop = chatDiv.scrollHeight;
+    }
+
+    sendButton.addEventListener('click', () => {
+        const message = messageInput.value.trim();
         if (!message) return;
 
-        // Adaugă mesajul utilizatorului în chat
-        const messagesDiv = document.getElementById('chatMessages');
-        const userMsgDiv = document.createElement('div');
-        userMsgDiv.className = 'message user-message';
-        userMsgDiv.textContent = message;
-        messagesDiv.appendChild(userMsgDiv);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        // Display user message immediately
+        appendMessage('user', message);
+        messageInput.value = '';
 
-        // Golește inputul
-        input.value = '';
+        // Prepare the assistant's message container
+        const assistantMsg = document.createElement('div');
+        assistantMsg.className = 'assistant';
+        assistantMsg.textContent = 'assistant: ';
+        chatDiv.appendChild(assistantMsg);
 
-        // Afișează indicator de typing
-        const typingDiv = document.createElement('div');
-        typingDiv.className = 'message bot-message';
-        typingDiv.textContent = '⏳ Scrie...';
-        typingDiv.id = 'typingIndicator';
-        messagesDiv.appendChild(typingDiv);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        // Send message to backend with streaming
+        fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message, stream: true })
+        })
+            .then(response => {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
 
-        try {
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message })
+                function read() {
+                    reader.read().then(({ done, value }) => {
+                        if (done) return;
+                        buffer += decoder.decode(value, { stream: true });
+                        // Split SSE events (each ends with \n\n)
+                        const events = buffer.split('\n\n');
+                        buffer = events.pop(); // keep incomplete event
+
+                        events.forEach(event => {
+                            if (event.startsWith('data: ')) {
+                                const jsonStr = event.slice(6);
+                                try {
+                                    const data = JSON.parse(jsonStr);
+                                    if (data.chunk) {
+                                        // Append chunk to assistant message
+                                        assistantMsg.textContent += data.chunk;
+                                        chatDiv.scrollTop = chatDiv.scrollHeight;
+                                    } else if (data.done) {
+                                        // Finished
+                                    } else if (data.error) {
+                                        assistantMsg.textContent += ` [Error: ${data.error}]`;
+                                    }
+                                } catch (e) {
+                                    console.error('Parse error', e);
+                                }
+                            }
+                        });
+                        read();
+                    });
+                }
+                read();
+            })
+            .catch(err => {
+                appendMessage('assistant', `Error: ${err.message}`);
             });
-            const data = await response.json();
+    });
 
-            // Elimină indicatorul de typing
-            document.getElementById('typingIndicator')?.remove();
+    clearButton.addEventListener('click', () => {
+        fetch('/api/clear', { method: 'POST' })
+            .then(() => {
+                chatDiv.innerHTML = '';
+            });
+    });
 
-            // Adaugă răspunsul botului
-            const botMsgDiv = document.createElement('div');
-            botMsgDiv.className = 'message bot-message';
-            botMsgDiv.textContent = data.answer || 'Nu am înțeles întrebarea.';
-            messagesDiv.appendChild(botMsgDiv);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        } catch (error) {
-            console.error('Eroare:', error);
-            document.getElementById('typingIndicator')?.remove();
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'message bot-message';
-            errorDiv.textContent = 'A apărut o eroare. Încearcă din nou.';
-            messagesDiv.appendChild(errorDiv);
-        }
-    }
+    // Optional: load history on page load
+    fetch('/api/history')
+        .then(res => res.json())
+        .then(history => {
+            history.forEach(msg => {
+                appendMessage(msg.role, msg.content);
+            });
+        });
+
+
 </script>
 </body>
 </html>
